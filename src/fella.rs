@@ -1,9 +1,5 @@
 use bevy::prelude::*;
 use bevy_aseprite::AsepriteBundle;
-use bevy_mod_picking::{
-    events::{Click, Pointer},
-    prelude::ListenerInput,
-};
 use rand::Rng;
 
 use crate::{
@@ -67,15 +63,6 @@ impl BasicMotives {
     pub fn change(&mut self, motive: BasicMotive, delta: f32) {
         let motive = &mut self.0[motive as usize].0;
         *motive = (*motive + delta).clamp(0.0, 1.0);
-    }
-}
-
-#[derive(Event)]
-pub struct SelectFellaEvent(pub Entity);
-
-impl From<ListenerInput<Pointer<Click>>> for SelectFellaEvent {
-    fn from(input: ListenerInput<Pointer<Click>>) -> Self {
-        SelectFellaEvent(input.target)
     }
 }
 

@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    fella::{
-        BasicMotive, BasicMotives, Fella, Named, SelectFellaEvent, SelectedFella, ALL_MOTIVES,
-    },
+    fella::{BasicMotive, BasicMotives, Fella, Named, SelectedFella, ALL_MOTIVES},
     time::{SimulationTime, TimeScale},
 };
 
@@ -312,7 +310,6 @@ impl Plugin for GameUiPlugin {
                     update_motive_bars,
                 ),
             )
-            .add_event::<SelectFellaEvent>()
             .insert_resource(SelectedFella(None));
     }
 }

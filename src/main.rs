@@ -19,7 +19,6 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_plugins(AsepritePlugin)
-        //.add_plugins(DefaultPickingPlugins)
         .add_plugins((GameUiPlugin, FellaPlugin, MyPickingPlugin))
         .add_systems(Startup, setup)
         .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
