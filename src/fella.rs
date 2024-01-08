@@ -2,12 +2,12 @@ use bevy::prelude::*;
 use bevy_aseprite::AsepriteBundle;
 use bevy_mod_picking::{
     events::{Click, Pointer},
-    prelude::{ListenerInput, On},
-    PickableBundle,
+    prelude::ListenerInput,
 };
 use rand::Rng;
 
 use crate::{
+    picking::{OnPickEvent, Pickable},
     time::{update_simulation_time, SimulationDeltaTime, SimulationTime},
     world::WorldPosition,
 };
@@ -17,7 +17,7 @@ use crate::{
 pub struct Fella;
 
 #[derive(Component)]
-pub struct Named(String);
+pub struct Named(pub String);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[allow(dead_code)]
@@ -32,6 +32,17 @@ pub enum BasicMotive {
     Environment = 7,
 }
 
+pub const ALL_MOTIVES: [BasicMotive; 8] = [
+    BasicMotive::Hunger,
+    BasicMotive::Bathroom,
+    BasicMotive::Energy,
+    BasicMotive::Hygiene,
+    BasicMotive::Social,
+    BasicMotive::Fun,
+    BasicMotive::Comfort,
+    BasicMotive::Environment,
+];
+
 pub struct MotiveValue(pub f32);
 
 impl Default for MotiveValue {
@@ -41,7 +52,7 @@ impl Default for MotiveValue {
 }
 
 #[derive(Component, Default)]
-struct BasicMotives([MotiveValue; 8]);
+pub struct BasicMotives([MotiveValue; 8]);
 
 #[allow(dead_code)]
 impl BasicMotives {
@@ -89,8 +100,7 @@ pub fn create_fella(
             target: position,
             assigned_at: SimulationTime::default(),
         },
-        PickableBundle::default(),
-        On::<Pointer<Click>>::send_event::<SelectFellaEvent>(),
+        Pickable,
         Visibility::default(),
         InheritedVisibility::default(),
         ViewVisibility::default(),
@@ -149,6 +159,43 @@ fn move_to_walk_target(
     }
 }
 
+#[derive(Resource)]
+pub struct SelectedFella(pub Option<Entity>);
+
+fn select_fella(
+    mut selected_fella: ResMut<SelectedFella>,
+    mut select_fella_events: EventReader<OnPickEvent>,
+    mut fellas: Query<(Entity, &mut TextureAtlasSprite), With<Fella>>,
+) {
+    for event in select_fella_events.read() {
+        selected_fella.0 = Some(event.0);
+        println!("Selected fella: {:?}", event.0);
+
+        for (fella_entity, mut sprite) in fellas.iter_mut() {
+            sprite.color = if fella_entity == event.0 {
+                Color::RED
+            } else {
+                Color::WHITE
+            };
+        }
+    }
+}
+
+fn apply_need_decay(
+    delta: Res<SimulationDeltaTime>,
+    mut query: Query<&mut BasicMotives, With<Fella>>,
+) {
+    let Some(delta) = delta.0 else {
+        return;
+    };
+
+    for mut basic_motives in query.iter_mut() {
+        for motive in ALL_MOTIVES.iter() {
+            basic_motives.change(*motive, -0.005 * delta as f32);
+        }
+    }
+}
+
 #[derive(Component)]
 pub struct Waiting(pub u64);
 
@@ -156,9 +203,15 @@ pub struct FellaPlugin;
 
 impl Plugin for FellaPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
+        app.insert_resource(SelectedFella(None)).add_systems(
             Update,
-            (assign_random_walk_target, move_to_walk_target).after(update_simulation_time),
+            (
+                assign_random_walk_target,
+                move_to_walk_target,
+                select_fella,
+                apply_need_decay,
+            )
+                .after(update_simulation_time),
         );
     }
 }

@@ -1,7 +1,9 @@
 use bevy::prelude::*;
 
 use crate::{
-    fella::SelectFellaEvent,
+    fella::{
+        BasicMotive, BasicMotives, Fella, Named, SelectFellaEvent, SelectedFella, ALL_MOTIVES,
+    },
     time::{SimulationTime, TimeScale},
 };
 
@@ -10,6 +12,8 @@ struct TimeText;
 
 #[derive(Component)]
 struct SpeedButton(TimeScale);
+
+const UI_BLUE: Color = Color::rgba(0.1, 0.1, 1.0, 0.8);
 
 fn create_ui(asset_server: Res<'_, AssetServer>, mut commands: Commands<'_, '_>) {
     // Add bottom bar and time display
@@ -21,13 +25,14 @@ fn create_ui(asset_server: Res<'_, AssetServer>, mut commands: Commands<'_, '_>)
             style: Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
-                justify_content: JustifyContent::End,
                 ..default()
             },
             ..default()
         })
         // Bottom bar
         .with_children(|parent| {
+            create_motives_panel(parent, &font);
+
             parent
                 .spawn(NodeBundle {
                     style: Style {
@@ -36,6 +41,7 @@ fn create_ui(asset_server: Res<'_, AssetServer>, mut commands: Commands<'_, '_>)
                         flex_direction: FlexDirection::Row,
                         flex_grow: 1.0,
                         justify_content: JustifyContent::SpaceBetween,
+                        justify_self: JustifySelf::End,
                         align_self: AlignSelf::FlexEnd,
                         align_items: AlignItems::Center,
                         padding: UiRect::all(Val::Px(8.0)),
@@ -43,7 +49,7 @@ fn create_ui(asset_server: Res<'_, AssetServer>, mut commands: Commands<'_, '_>)
 
                         ..default()
                     },
-                    background_color: BackgroundColor(Color::rgba(0.1, 0.1, 1.0, 0.8)),
+                    background_color: BackgroundColor(UI_BLUE),
                     ..default()
                 })
                 // Time display
@@ -113,10 +119,117 @@ fn create_speed_button(
         });
 }
 
-#[derive(Resource)]
-pub struct SelectedFella(Option<Entity>);
+#[derive(Component)]
+struct MotiveBar(BasicMotive);
 
-fn create_needs_panel(parent: &mut ChildBuilder<'_, '_, '_>, font: &Handle<Font>) {}
+#[derive(Component)]
+struct SelectedFellaLabel;
+
+fn create_motives_panel(parent: &mut ChildBuilder<'_, '_, '_>, font: &Handle<Font>) {
+    parent
+        .spawn(NodeBundle {
+            style: Style {
+                height: Val::Percent(100.0),
+                min_width: Val::Px(200.0),
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(Val::Px(16.0)),
+                row_gap: Val::Px(32.0),
+                ..default()
+            },
+            background_color: BackgroundColor(UI_BLUE),
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn((
+                SelectedFellaLabel,
+                TextBundle {
+                    text: Text::from_section(
+                        "No one selected",
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 24.0,
+                            color: Color::WHITE,
+                        },
+                    ),
+                    ..default()
+                },
+            ));
+
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        width: Val::Percent(100.0),
+                        display: Display::Grid,
+                        grid_template_columns: vec![GridTrack::px(150.0), GridTrack::px(150.0)],
+                        grid_auto_rows: vec![GridTrack::max_content()],
+                        column_gap: Val::Px(16.0),
+                        row_gap: Val::Px(8.0),
+                        ..default()
+                    },
+                    ..default()
+                })
+                .with_children(|parent| {
+                    // Create bar for each need
+
+                    for motive in ALL_MOTIVES {
+                        parent
+                            .spawn(NodeBundle {
+                                style: Style {
+                                    flex_direction: FlexDirection::Column,
+                                    row_gap: Val::Px(4.0),
+                                    ..default()
+                                },
+                                ..default()
+                            })
+                            .with_children(|parent| {
+                                parent.spawn(TextBundle {
+                                    text: Text::from_section(
+                                        format!("{:?}", motive),
+                                        TextStyle {
+                                            font: font.clone(),
+                                            font_size: 16.0,
+                                            color: Color::WHITE,
+                                        },
+                                    ),
+                                    ..default()
+                                });
+                                // Progress bar
+
+                                // Container
+                                parent
+                                    .spawn(NodeBundle {
+                                        style: Style {
+                                            width: Val::Percent(100.0),
+                                            height: Val::Px(16.0),
+                                            padding: UiRect::all(Val::Px(2.0)),
+                                            ..default()
+                                        },
+                                        background_color: BackgroundColor(Color::rgb(
+                                            0.0, 0.0, 0.2,
+                                        )),
+                                        ..default()
+                                    })
+                                    .with_children(|parent| {
+                                        parent.spawn((
+                                            MotiveBar(motive),
+                                            NodeBundle {
+                                                style: Style {
+                                                    width: Val::Percent(50.0),
+                                                    height: Val::Percent(100.0),
+                                                    ..default()
+                                                },
+                                                background_color: BackgroundColor(Color::rgb(
+                                                    0.0, 0.7, 0.0,
+                                                )),
+                                                ..default()
+                                            },
+                                        ));
+                                    });
+                            });
+                    }
+                });
+        });
+}
 
 fn update_time_display(
     world_time: Res<SimulationTime>,
@@ -147,13 +260,41 @@ fn handle_time_scale_button_events(
     }
 }
 
-fn update_selected_fella(
-    mut selected_fella: ResMut<SelectedFella>,
-    mut events: EventReader<SelectFellaEvent>,
+fn on_fella_selected(
+    selected_fella: Res<SelectedFella>,
+    fellas: Query<&Named, With<Fella>>,
+    mut fella_label: Query<&mut Text, With<SelectedFellaLabel>>,
 ) {
-    for event in events.read() {
-        println!("Selected fella: {:?}", event.0);
-        selected_fella.0 = Some(event.0);
+    if !selected_fella.is_changed() {
+        return;
+    }
+
+    let label = if let Some(selected_fella) = selected_fella.0 {
+        let name = fellas.get(selected_fella).unwrap().0.clone();
+        name
+    } else {
+        String::from("No one selected")
+    };
+
+    fella_label.single_mut().sections[0].value = label;
+}
+
+fn update_motive_bars(
+    selected_fella: Res<SelectedFella>,
+    fellas: Query<&BasicMotives, With<Fella>>,
+    mut query: Query<(&mut MotiveBar, &mut Style)>,
+) {
+    let selected_fella = match selected_fella.0 {
+        Some(selected_fella) => selected_fella,
+        None => return,
+    };
+
+    let motives = fellas.get(selected_fella).unwrap();
+
+    for (motive_bar, mut style) in query.iter_mut() {
+        let motive = motive_bar.0;
+        let motive_value = motives.get(motive);
+        style.width = Val::Percent(motive_value * 100.0);
     }
 }
 
@@ -167,7 +308,8 @@ impl Plugin for GameUiPlugin {
                 (
                     update_time_display,
                     handle_time_scale_button_events,
-                    update_selected_fella.run_if(on_event::<SelectFellaEvent>()),
+                    on_fella_selected,
+                    update_motive_bars,
                 ),
             )
             .add_event::<SelectFellaEvent>()

@@ -1,13 +1,16 @@
 use bevy::prelude::*;
 use bevy_aseprite::{AsepriteBundle, AsepritePlugin};
 
+mod camera;
 mod fella;
+mod picking;
 mod time;
 mod ui;
 mod world;
 
-use bevy_mod_picking::DefaultPickingPlugins;
+use camera::MainCamera;
 use fella::FellaPlugin;
+use picking::MyPickingPlugin;
 use time::{advance_time, update_simulation_time, SimulationDeltaTime, SimulationTime, TimeScale};
 use ui::GameUiPlugin;
 use world::WorldPosition;
@@ -16,8 +19,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_plugins(AsepritePlugin)
-        .add_plugins(DefaultPickingPlugins)
-        .add_plugins((GameUiPlugin, FellaPlugin))
+        //.add_plugins(DefaultPickingPlugins)
+        .add_plugins((GameUiPlugin, FellaPlugin, MyPickingPlugin))
         .add_systems(Startup, setup)
         .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
         .insert_resource(SimulationTime::default())
@@ -44,7 +47,7 @@ mod sprites {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), MainCamera));
 
     commands.spawn(AsepriteBundle {
         aseprite: asset_server.load(sprites::Hamburger::PATH),
