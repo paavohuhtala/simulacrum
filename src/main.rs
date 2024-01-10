@@ -6,6 +6,7 @@ mod fella;
 mod picking;
 mod time;
 mod ui;
+mod utility;
 mod world;
 
 use camera::MainCamera;

@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use bevy::prelude::*;
 use bevy_aseprite::AsepriteBundle;
 use rand::Rng;
@@ -39,7 +41,16 @@ pub const ALL_MOTIVES: [BasicMotive; 8] = [
     BasicMotive::Environment,
 ];
 
+#[derive(Clone, Copy, Debug)]
 pub struct MotiveValue(pub f32);
+
+impl Add for MotiveValue {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        MotiveValue(self.0 + rhs.0)
+    }
+}
 
 impl Default for MotiveValue {
     fn default() -> Self {
@@ -47,8 +58,27 @@ impl Default for MotiveValue {
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone)]
 pub struct BasicMotives([MotiveValue; 8]);
+
+#[derive(Default, Clone)]
+pub struct BasicMotivesDelta([f32; 8]);
+
+impl BasicMotivesDelta {
+    pub fn add(&mut self, motive: BasicMotive, value: f32) {
+        self.0[motive as usize] += value;
+    }
+
+    pub fn get(&self, motive: BasicMotive) -> f32 {
+        self.0[motive as usize]
+    }
+
+    pub fn scale(&mut self, factor: f32) {
+        for value in self.0.iter_mut() {
+            *value *= factor;
+        }
+    }
+}
 
 #[allow(dead_code)]
 impl BasicMotives {
@@ -63,6 +93,12 @@ impl BasicMotives {
     pub fn change(&mut self, motive: BasicMotive, delta: f32) {
         let motive = &mut self.0[motive as usize].0;
         *motive = (*motive + delta).clamp(0.0, 1.0);
+    }
+
+    pub fn add(&mut self, delta: &BasicMotivesDelta) {
+        for (motive, value) in delta.0.iter().enumerate() {
+            self.0[motive].0 = (self.0[motive].0 + value).clamp(0.0, 1.0);
+        }
     }
 }
 
@@ -176,10 +212,21 @@ fn apply_need_decay(
         return;
     };
 
+    let mut default_decays = BasicMotivesDelta([
+        -0.006, // Hunger
+        -0.005, // Bathroom
+        -0.004, // Energy
+        -0.005, // Hygiene
+        -0.005, // Social
+        -0.008, // Fun
+        -0.005, // Comfort
+        -0.009, // Environment
+    ]);
+
+    default_decays.scale(delta as f32);
+
     for mut basic_motives in query.iter_mut() {
-        for motive in ALL_MOTIVES.iter() {
-            basic_motives.change(*motive, -0.005 * delta as f32);
-        }
+        basic_motives.add(&default_decays);
     }
 }
 
